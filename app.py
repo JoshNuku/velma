@@ -9,13 +9,13 @@ Features:
 """
 
 import asyncio
+import queue
 from datetime import datetime
 
 import chainlit as cl
 
 from main import (
-    velma_master_agent,
-    velma_streaming_agent,
+    velma_token_stream,
     reset_conversation,
     DANGEROUS_TOOLS,
 )
@@ -75,19 +75,28 @@ async def on_message(message: cl.Message):
         await cl.Message(content=result).send()
         return
 
-    # Stream the response
+    # Stream the response token-by-token
     msg = cl.Message(content="")
-    await msg.send()  # placeholder so tokens can be streamed into it
+    await msg.send()
 
     full_response = ""
+    loop = asyncio.get_event_loop()
+    token_queue: queue.Queue = queue.Queue()
+    sentinel = object()
 
-    # Run the streaming generator in a thread (it's synchronous inside)
-    def _run_generator():
-        return list(velma_streaming_agent(user_text))
+    def _produce():
+        try:
+            for token in velma_token_stream(user_text):
+                token_queue.put(token)
+        finally:
+            token_queue.put(sentinel)
 
-    tokens = await cl.make_async(_run_generator)()
+    loop.run_in_executor(None, _produce)
 
-    for token in tokens:
+    while True:
+        token = await loop.run_in_executor(None, token_queue.get)
+        if token is sentinel:
+            break
         full_response += token
         await msg.stream_token(token)
 

@@ -4,7 +4,7 @@ import shutil
 import psutil
 import threading
 from datetime import datetime, timedelta
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 # ---------------------------------------------------------------------------
 # Reminder callback — set by the UI layer (cli or chainlit)

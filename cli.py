@@ -4,6 +4,7 @@ Velma — Terminal interface.
 Fast, no browser overhead. Run with:  python cli.py
 """
 
+import re
 import sys
 import threading
 import itertools
@@ -18,6 +19,30 @@ DIM = "\033[2m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 MAGENTA = "\033[95m"
+UNDERLINE = "\033[4m"
+
+
+def clean_markdown(text: str) -> str:
+    """Convert markdown formatting to ANSI terminal codes."""
+    # Fenced code blocks — keep content, dim it
+    text = re.sub(r"```\w*\n(.*?)```", rf"{DIM}\1{RESET}", text, flags=re.S)
+    # Inline code
+    text = re.sub(r"`([^`]+)`", rf"{DIM}\1{RESET}", text)
+    # Bold + italic
+    text = re.sub(r"\*\*\*(.+?)\*\*\*", rf"{BOLD}{CYAN}\1{RESET}", text)
+    # Bold
+    text = re.sub(r"\*\*(.+?)\*\*", rf"{BOLD}\1{RESET}", text)
+    # Italic
+    text = re.sub(r"\*(.+?)\*", rf"{CYAN}\1{RESET}", text)
+    # Headings (strip the #'s, bold the text)
+    text = re.sub(r"^#{1,6}\s+(.+)$", rf"{BOLD}\1{RESET}", text, flags=re.M)
+    # Bullet points — clean up to a simple dash
+    text = re.sub(r"^[\s]*[-*+]\s+", "  - ", text, flags=re.M)
+    # Links [text](url) → text (url)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", rf"\1 ({UNDERLINE}\2{RESET})", text)
+    # Horizontal rules
+    text = re.sub(r"^-{3,}$", "─" * 40, text, flags=re.M)
+    return text
 
 
 def _cli_reminder(text: str):
@@ -95,7 +120,7 @@ def main():
                     spinner.stop()
                     sys.stdout.write(f"{CYAN}Velma:{RESET} ")
                     first = False
-                sys.stdout.write(token)
+                sys.stdout.write(clean_markdown(token))
                 sys.stdout.flush()
         except KeyboardInterrupt:
             spinner.stop()

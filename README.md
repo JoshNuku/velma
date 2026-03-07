@@ -1,6 +1,6 @@
 # Velma
 
-Personal AI desktop assistant built by Josh. Powered by Llama 3.3 70B on Groq.
+Personal AI desktop assistant built by Josh. Powered by Gemini.
 
 ## What it does
 
@@ -23,14 +23,14 @@ velma_env\Scripts\activate
 pip install -r requirements.txt  # or install packages manually
 ```
 
-### 2. Get a Groq API key
+### 2. Get a Gemini API key
 
-Sign up at [console.groq.com](https://console.groq.com/keys) (free tier available).
+Sign up at [aistudio.google.com](https://aistudio.google.com/apikey) (free tier available).
 
 ### 3. Configure `.env`
 
 ```
-GROQ_API_KEY=your-key-here
+GEMINI_API_KEY=your-key-here
 ```
 
 ### 4. Run
