@@ -70,8 +70,3 @@ rag.py          — Semantic note search (ChromaDB embeddings)
 data/           — Conversation history storage
 ```
 
-## Model
-
-Uses `llama-3.3-70b-versatile` via Groq's API. Swappable by changing `MODEL` in `main.py`.
-
-Previously ran on Ollama with `qwen2.5-coder:1.5b` locally — switched to Groq for speed.
