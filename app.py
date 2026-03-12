@@ -17,6 +17,7 @@ import chainlit as cl
 from main import (
     velma_token_stream,
     reset_conversation,
+    velma_greeting,
     DANGEROUS_TOOLS,
 )
 from tools import ALL_TOOLS, set_reminder_callback
@@ -43,12 +44,11 @@ set_reminder_callback(_chainlit_reminder)
 
 @cl.on_chat_start
 async def on_start():
-    """Welcome message."""
-    await cl.Message(
-        content=(
-            "Hey Josh — Velma here. What do you need?"
-        )
-    ).send()
+    """Welcome message — Velma speaks first."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    greeting = await loop.run_in_executor(None, velma_greeting)
+    await cl.Message(content=greeting).send()
 
 
 @cl.action_callback("confirm_action")

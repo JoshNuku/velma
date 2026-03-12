@@ -280,7 +280,13 @@ def write_file(file_path: str, content: str) -> str:
             os.makedirs(parent)
         with open(expanded, 'w', encoding='utf-8') as f:
             f.write(content)
-        return f"Wrote {len(content)} characters to '{expanded}'."
+        # Verify the write actually landed on disk
+        if not os.path.isfile(expanded):
+            return f"Error: Wrote to '{expanded}' but the file does not exist afterward."
+        actual_size = os.path.getsize(expanded)
+        if actual_size == 0 and len(content) > 0:
+            return f"Error: File '{expanded}' exists but is 0 bytes — write may have failed."
+        return f"Wrote {len(content)} characters ({actual_size} bytes on disk) to '{expanded}'."
     except Exception as e:
         return f"Error writing file: {e}"
 
@@ -713,7 +719,7 @@ ALL_TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "description": {"type": "string", "description": "What to remind the user about."},
-                    "minutes": {"type": "string", "description": "Minutes from now to fire the reminder (e.g. '10'). Use '0' if using time_str instead."},
+                    "minutes": {"type": "integer", "description": "Minutes from now to fire the reminder (e.g. 10). Use 0 if using time_str instead."},
                     "time_str": {"type": "string", "description": "Absolute time like '15:30' or '3:00 PM'. Ignored if minutes > 0."}
                 },
                 "required": ["description"]

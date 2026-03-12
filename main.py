@@ -44,16 +44,32 @@ SYSTEM_PROMPT = (
 
     # --- Personality ---
     "Personality:\n"
-    "• Concise and direct. No corporate speak, no filler, no 'As an AI...', no 'I hope this helps.'\n"
-    "• Sharp coworker energy — helpful, not servile. Think dry wit, not customer service.\n"
-    "• Technically dense when the topic calls for it. Josh can handle jargon — use it.\n"
-    "• Proactive — if you spot something useful (high disk usage, a simpler approach, a gotcha), mention it.\n"
-    "• Honest — if you don't know, say so. Never fabricate facts or hallucinate references.\n"
-    "• Value accuracy over politeness. Get it right first, be nice second.\n\n"
+    "• Warm but not sappy. You genuinely care about Josh — show it through helpfulness, not empty pleasantries.\n"
+    "• Funny. Lean into witty remarks, playful sarcasm, pop-culture quips (especially DC Comics), "
+    "and the occasional pun. Humor should feel natural, not forced — sprinkle it in, don't overdo it.\n"
+    "• Concise and clear. No corporate speak, no filler, no 'As an AI...'. "
+    "But a well-placed joke or kind word is never filler.\n"
+    "• Technically sharp when the topic calls for it. Josh can handle jargon — use it. "
+    "But explain things with personality, not like a textbook.\n"
+    "• Proactive — if you spot something useful (high disk usage, a simpler approach, a gotcha), mention it. "
+    "Bonus points if you make it entertaining.\n"
+    "• Honest — if you don't know, say so. Never fabricate facts or hallucinate references. "
+    "It's okay to joke about not knowing.\n"
+    "• Encouraging — when Josh accomplishes something or has a clever idea, acknowledge it. "
+    "A little hype from your AI assistant never hurt anyone.\n\n"
 
-    # --- Tool use ---
-    "You have tools. Use them — don't describe what you *would* do, just do it. "
-    "After a tool runs, summarize the result in natural language. Never dump raw JSON at Josh.\n\n"
+    # --- Tool use (CRITICAL) ---
+    "TOOL USE — THESE RULES ARE NON-NEGOTIABLE:\n"
+    "1. EXECUTE, don't narrate. When Josh asks you to do something, call the tool IMMEDIATELY. "
+    "Never say 'I'm about to...', 'I will now...', 'Standing by...', or 'Executing now...' "
+    "without ACTUALLY calling the tool in that same response.\n"
+    "2. NEVER claim you did something unless the tool result confirms it. "
+    "If a tool returns an error, tell Josh clearly — don't pretend it worked.\n"
+    "3. VERIFY after write operations. If you used write_file, check the result message "
+    "for the byte count. If it says 0 bytes, the write FAILED — say so and retry.\n"
+    "4. ONE attempt narrative. Don't repeat yourself across turns saying 'this time for real'. "
+    "If something failed, diagnose WHY, then fix it in one clean attempt.\n"
+    "5. After a tool runs, summarize the result in natural language. Never dump raw JSON at Josh.\n\n"
 
     "Tool routing:\n"
     "• 'open/launch/start X' → launch_application (handles apps, file paths, folders, URLs). "
@@ -75,10 +91,17 @@ SYSTEM_PROMPT = (
     "Formatting:\n"
     "• Default to 1-3 sentences. Expand only when Josh asks for detail or the answer demands it.\n"
     "• Never list your capabilities unprompted.\n"
-    "• Use markdown lightly — bold for emphasis, code blocks for code. That's it.\n"
+    "• Use markdown well — headers (##, ###) for sections, **bold** for emphasis, "
+    "bullet/numbered lists for structure, fenced code blocks with language tags.\n"
+    "• Math & equations: use LaTeX with KaTeX syntax. Inline: $x^2$. "
+    "Display/block equations: use $$ on its own line before and after the expression. "
+    "Never put display equations on the same line as $$. Example:\n"
+    "$$\n\\frac{6}{(s+1)(s+2)}\n$$\n"
+    "• For technical/engineering answers, use a clear hierarchy: "
+    "a short intro, then organized sections with headers or bold labels, "
+    "and display math for key equations.\n"
     "• System stats: clean compact list, no prose.\n"
-    "• Code: always fenced with the language tag.\n"
-    "• Hard cap: ~150 words unless explicitly asked for more."
+    "• Hard cap: ~150 words for casual answers. Technical/math answers can go longer as needed."
 )
 
 # ---------------------------------------------------------------------------
@@ -98,6 +121,26 @@ def _build_messages(history: list[dict]) -> list[dict]:
 conversation_history: list[dict] = load_history()
 
 
+def velma_greeting() -> str:
+    """Generate a short opening line from Velma when she starts up."""
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                "You are just starting up. Greet Josh with a short, natural one-liner "
+                "(1 sentence max). Vary it — be casual, maybe reference the time of day "
+                "or crack a dry quip. No tools, no questions, just a greeting."
+            ),
+        },
+    ]
+    try:
+        resp = client.chat.completions.create(model=MODEL, messages=messages)
+        return resp.choices[0].message.content or "Hey Josh."
+    except Exception:
+        return "Hey Josh — Velma here. What do you need?"
+
+
 def reset_conversation() -> str:
     """Clear conversation memory (both in-memory and on disk)."""
     global conversation_history
@@ -115,8 +158,8 @@ DANGEROUS_TOOLS = {"run_shell_command", "organize_files", "write_file"}
 # ---------------------------------------------------------------------------
 # Non-streaming agent (fallback)
 # ---------------------------------------------------------------------------
-def _run_tools(tool_calls) -> list[str]:
-    """Execute tool calls and return list of 'tool_name: result' strings."""
+def _run_tools(tool_calls) -> list[dict]:
+    """Execute tool calls and return list of tool-role message dicts."""
     results = []
     for tc in tool_calls:
         fn_name = tc.function.name
@@ -125,13 +168,17 @@ def _run_tools(tool_calls) -> list[str]:
         except json.JSONDecodeError:
             args = {}
         if fn_name not in ALL_TOOLS:
-            results.append(f"{fn_name}: Unknown tool")
+            output = f"Unknown tool: {fn_name}"
         else:
             try:
-                result = ALL_TOOLS[fn_name](**args)
+                output = ALL_TOOLS[fn_name](**args)
             except Exception as e:
-                result = f"Error: {e}"
-            results.append(f"{fn_name}: {result}")
+                output = f"Error: {e}"
+        results.append({
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "content": str(output),
+        })
     return results
 
 
@@ -159,15 +206,14 @@ def velma_master_agent(user_prompt: str) -> str:
         save_history(conversation_history)
         return reply
 
-    # Execute tools
-    tool_results = _run_tools(tool_calls)
-    tool_summary = "\n".join(tool_results)
+    # Record the assistant's tool-call message in history
+    conversation_history.append(choice.to_dict())
 
-    # Feed results back as a user context message for the follow-up
-    conversation_history.append(
-        {"role": "user", "content": f"[Tool results]\n{tool_summary}\n\nSummarize this for me."}
-    )
+    # Execute tools and append each result as a proper tool message
+    tool_messages = _run_tools(tool_calls)
+    conversation_history.extend(tool_messages)
 
+    # Let the model summarise the results
     try:
         follow_up = client.chat.completions.create(
             model=MODEL,
@@ -175,10 +221,10 @@ def velma_master_agent(user_prompt: str) -> str:
         )
         reply = follow_up.choices[0].message.content or ""
     except Exception as e:
-        reply = f"Tools ran but follow-up failed: {e}\nRaw: {tool_summary}"
+        raw = "\n".join(m["content"] for m in tool_messages)
+        reply = f"Tools ran but follow-up failed: {e}\nRaw: {raw}"
 
-    # Replace the tool-results message with the final reply in history
-    conversation_history[-1] = {"role": "assistant", "content": reply}
+    conversation_history.append({"role": "assistant", "content": reply})
     conversation_history = trim_history(conversation_history)
     save_history(conversation_history)
     return reply
@@ -218,14 +264,10 @@ def velma_streaming_agent(user_prompt: str):
         yield reply
         return
 
-    # --- Execute tools then get the summary ---
-    tool_results = _run_tools(tool_calls)
-    tool_summary = "\n".join(tool_results)
-
-    # Feed results back as a user context message for the follow-up
-    conversation_history.append(
-        {"role": "user", "content": f"[Tool results]\n{tool_summary}\n\nSummarize this for me."}
-    )
+    # --- Record assistant tool-call message, execute, append results ---
+    conversation_history.append(choice.to_dict())
+    tool_messages = _run_tools(tool_calls)
+    conversation_history.extend(tool_messages)
 
     try:
         follow_up = client.chat.completions.create(
@@ -234,11 +276,11 @@ def velma_streaming_agent(user_prompt: str):
         )
         full_reply = follow_up.choices[0].message.content or ""
         yield full_reply
-        # Replace the tool-results message with the final reply in history
-        conversation_history[-1] = {"role": "assistant", "content": full_reply}
+        conversation_history.append({"role": "assistant", "content": full_reply})
     except Exception as e:
-        fallback = f"Tool results: {tool_summary}\n\n(Follow-up failed: {e})"
-        conversation_history[-1] = {"role": "assistant", "content": fallback}
+        raw = "\n".join(m["content"] for m in tool_messages)
+        fallback = f"Tool results: {raw}\n\n(Follow-up failed: {e})"
+        conversation_history.append({"role": "assistant", "content": fallback})
         yield fallback
 
     conversation_history = trim_history(conversation_history)
@@ -252,7 +294,7 @@ def velma_token_stream(user_prompt: str):
     """
     Generator that yields tokens one at a time for real-time streaming.
     First call checks for tools (non-streaming), then the follow-up
-    or direct reply is streamed token-by-token.
+    is streamed token-by-token.
     """
     global conversation_history
 
@@ -272,34 +314,23 @@ def velma_token_stream(user_prompt: str):
     choice = response.choices[0].message
     tool_calls = choice.tool_calls
 
-    # --- No tools: stream the reply token-by-token ---
+    # --- No tools: use the already-received reply, stream it token-by-token ---
     if not tool_calls:
-        try:
-            stream = client.chat.completions.create(
-                model=MODEL, messages=messages, stream=True,
-            )
-            full_reply = ""
-            for chunk in stream:
-                token = chunk.choices[0].delta.content or ""
-                full_reply += token
-                yield token
-            conversation_history.append({"role": "assistant", "content": full_reply})
-            save_history(conversation_history)
-        except Exception:
-            reply = choice.content or ""
-            conversation_history.append({"role": "assistant", "content": reply})
-            save_history(conversation_history)
-            yield reply
+        reply = choice.content or ""
+        conversation_history.append({"role": "assistant", "content": reply})
+        save_history(conversation_history)
+        # Yield in small chunks to simulate streaming from the cached response
+        chunk_size = 4
+        for i in range(0, len(reply), chunk_size):
+            yield reply[i:i + chunk_size]
         return
 
-    # --- Execute tools, then stream the summary token-by-token ---
-    tool_results = _run_tools(tool_calls)
-    tool_summary = "\n".join(tool_results)
+    # --- Record assistant tool-call, execute tools, append results ---
+    conversation_history.append(choice.to_dict())
+    tool_messages = _run_tools(tool_calls)
+    conversation_history.extend(tool_messages)
 
-    conversation_history.append(
-        {"role": "user", "content": f"[Tool results]\n{tool_summary}\n\nSummarize this for me."}
-    )
-
+    # Stream the follow-up summary token-by-token
     try:
         stream = client.chat.completions.create(
             model=MODEL,
@@ -311,10 +342,11 @@ def velma_token_stream(user_prompt: str):
             token = chunk.choices[0].delta.content or ""
             full_reply += token
             yield token
-        conversation_history[-1] = {"role": "assistant", "content": full_reply}
+        conversation_history.append({"role": "assistant", "content": full_reply})
     except Exception as e:
-        fallback = f"Tool results: {tool_summary}\n\n(Follow-up failed: {e})"
-        conversation_history[-1] = {"role": "assistant", "content": fallback}
+        raw = "\n".join(m["content"] for m in tool_messages)
+        fallback = f"Tool results: {raw}\n\n(Follow-up failed: {e})"
+        conversation_history.append({"role": "assistant", "content": fallback})
         yield fallback
 
     conversation_history = trim_history(conversation_history)

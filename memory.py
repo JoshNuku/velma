@@ -57,12 +57,24 @@ def trim_history(history: list[dict], *, max_messages: int = MAX_MESSAGES) -> li
     # the dropped segment and prepend a summary message.
     trimmed = history[-max_messages:]
 
-    # Make sure we don't start on a tool or assistant message that references
-    # a prior tool_calls message we just dropped.
+    # Make sure we don't start on a tool, assistant-with-tool_calls, or
+    # orphaned message that references a prior context we just dropped.
     while trimmed and trimmed[0].get("role") in ("tool", "assistant") and len(trimmed) > 1:
         trimmed = trimmed[1:]
 
-    return trimmed
+    # Strip tool_calls from assistant messages in history to avoid
+    # confusing the model on reload (the results are already inline).
+    cleaned = []
+    for msg in trimmed:
+        if msg.get("role") == "assistant" and "tool_calls" in msg:
+            cleaned.append({"role": "assistant", "content": msg.get("content") or ""})
+        elif msg.get("role") == "tool":
+            # Keep tool messages only if preceded by an assistant with tool_calls
+            cleaned.append(msg)
+        else:
+            cleaned.append(msg)
+
+    return cleaned
 
 
 def clear_history() -> None:

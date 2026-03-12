@@ -9,7 +9,7 @@ import sys
 import threading
 import itertools
 import time
-from main import velma_streaming_agent, reset_conversation
+from main import velma_streaming_agent, reset_conversation, velma_greeting
 from tools import set_reminder_callback
 
 CYAN = "\033[96m"
@@ -84,6 +84,10 @@ class _Spinner:
 def main():
     set_reminder_callback(_cli_reminder)
     print(f"\n{CYAN}{BOLD}Velma{RESET} {DIM}(terminal mode — type /quit to exit, /clear to reset){RESET}\n")
+
+    # Velma speaks first
+    greeting = velma_greeting()
+    print(f"{CYAN}Velma:{RESET} {clean_markdown(greeting)}\n")
 
     spinner = _Spinner()
 
