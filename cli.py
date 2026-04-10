@@ -11,6 +11,7 @@ import itertools
 import time
 from main import velma_streaming_agent, reset_conversation, velma_greeting
 from tools import set_reminder_callback
+from email_jobs import start_background_worker
 
 CYAN = "\033[96m"
 GREEN = "\033[92m"
@@ -82,6 +83,7 @@ class _Spinner:
 
 
 def main():
+    start_background_worker()
     set_reminder_callback(_cli_reminder)
     print(f"\n{CYAN}{BOLD}Velma{RESET} {DIM}(terminal mode — type /quit to exit, /clear to reset){RESET}\n")
 

@@ -21,6 +21,7 @@ from main import (
     DANGEROUS_TOOLS,
 )
 from tools import ALL_TOOLS, set_reminder_callback
+from email_jobs import start_background_worker
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +47,7 @@ set_reminder_callback(_chainlit_reminder)
 async def on_start():
     """Welcome message — Velma speaks first."""
     import asyncio
+    start_background_worker()
     loop = asyncio.get_event_loop()
     greeting = await loop.run_in_executor(None, velma_greeting)
     await cl.Message(content=greeting).send()

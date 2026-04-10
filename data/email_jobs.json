@@ -1,0 +1,105 @@
+{
+  "settings": {
+    "whimsy_enabled": true,
+    "recipient": "nukujosh119@gmail.com",
+    "min_hours": 4,
+    "max_hours": 12,
+    "probability": 1.0
+  },
+  "jobs": [
+    {
+      "id": "c9f8c094-171b-46f9-ac79-f68946d63aaa",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Call Hayet",
+      "body": "Hey Josh,\n\nCall Hayet\n\nScheduled for: 2026-04-03T13:14:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-03T13:14:00",
+      "status": "failed",
+      "created_at": "2026-04-03T13:12:45",
+      "sent_at": "2026-04-03T13:14:02",
+      "error": "Error sending email: [Errno 11001] getaddrinfo failed"
+    },
+    {
+      "id": "47309c7b-6988-4f99-9865-7799866985ea",
+      "kind": "whimsy_email",
+      "recipient": "nukujosh119@gmail.com",
+      "next_run": "2026-04-10T18:18:48",
+      "status": "pending",
+      "created_at": "2026-04-03T13:16:32",
+      "sent_at": "",
+      "error": ""
+    },
+    {
+      "id": "1762de7b-7990-43a9-898c-9743fcb9b78e",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Call Hayet",
+      "body": "Hey Josh,\n\nCall Hayet\n\nScheduled for: 2026-04-03T13:23:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-03T13:23:00",
+      "status": "failed",
+      "created_at": "2026-04-03T13:21:28",
+      "sent_at": "2026-04-03T13:23:02",
+      "error": "Error sending email: [Errno 11001] getaddrinfo failed"
+    },
+    {
+      "id": "5dec258e-c34c-4222-aa3a-f13bd115f562",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Call Hayet",
+      "body": "Hey Josh,\n\nCall Hayet\n\nScheduled for: 2026-04-03T13:29:33\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-03T13:29:33",
+      "status": "sent",
+      "created_at": "2026-04-03T13:27:33",
+      "sent_at": "2026-04-03T13:29:59",
+      "error": ""
+    },
+    {
+      "id": "7e433897-5a84-4b30-9b49-65b4460b395f",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Call Hayet (postponed)",
+      "body": "Hey Josh,\n\nCall Hayet (postponed)\n\nScheduled for: 2026-04-03T14:00:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-03T14:00:00",
+      "status": "sent",
+      "created_at": "2026-04-03T13:35:13",
+      "sent_at": "2026-04-03T14:00:04",
+      "error": ""
+    },
+    {
+      "id": "f8530862-d924-433d-b76e-5991e665b6bf",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Tell Hayet about doing the Hult Prize Video on Monday",
+      "body": "Hey Josh,\n\nTell Hayet about doing the Hult Prize Video on Monday\n\nScheduled for: 2026-04-05T09:00:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-05T09:00:00",
+      "status": "failed",
+      "created_at": "2026-04-04T22:00:30",
+      "sent_at": "2026-04-05T09:00:02",
+      "error": "Error sending email: [Errno 11001] getaddrinfo failed"
+    },
+    {
+      "id": "079b7f47-c990-412b-8d98-64de88ac031f",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Tell Elvis and John about needing the EEG software to read a",
+      "body": "Hey Josh,\n\nTell Elvis and John about needing the EEG software to read and export signals\n\nScheduled for: 2026-04-05T09:00:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-05T09:00:00",
+      "status": "failed",
+      "created_at": "2026-04-04T22:00:30",
+      "sent_at": "2026-04-05T09:00:02",
+      "error": "Error sending email: [Errno 11001] getaddrinfo failed"
+    },
+    {
+      "id": "b24555b2-0420-4bee-936b-4b5cfef63f2b",
+      "kind": "reminder_email",
+      "recipient": "nukujosh119@gmail.com",
+      "subject": "Velma reminder: Time for push-ups! Keep that chest and arm progress moving.",
+      "body": "Hey Josh,\n\nTime for push-ups! Keep that chest and arm progress moving. Do some decline or diamond push-ups!\n\nScheduled for: 2026-04-07T17:00:00\nThis reminder was queued by Velma.",
+      "next_run": "2026-04-07T17:00:00",
+      "status": "sent",
+      "created_at": "2026-04-06T23:25:22",
+      "sent_at": "2026-04-07T17:00:21",
+      "error": ""
+    }
+  ]
+}

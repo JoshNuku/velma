@@ -11,6 +11,7 @@ Personal AI desktop assistant built by Josh. Powered by Gemini.
 - **Web search** — DuckDuckGo integration
 - **Shell commands** — run anything from natural language
 - **Reminders** — "remind me to push the commit in 10 minutes"
+- **Email reminders** — queue reminder emails and optional random check-in emails
 - **Temp file cleanup** — clear Windows temp dirs
 
 ## Setup
@@ -31,7 +32,20 @@ Sign up at [aistudio.google.com](https://aistudio.google.com/apikey) (free tier 
 
 ```
 GEMINI_API_KEY=your-key-here
+VELMA_SMTP_HOST=smtp.gmail.com
+VELMA_SMTP_PORT=587
+VELMA_SMTP_USERNAME=you@example.com
+VELMA_SMTP_PASSWORD=your-app-password
+VELMA_EMAIL_FROM=you@example.com
+VELMA_EMAIL_TO=you@example.com
+VELMA_SMTP_STARTTLS=true
+VELMA_SYSTEM_PROMPT=Optional override for the full Velma system prompt
 ```
+
+You can override Velma's built-in system prompt with `VELMA_SYSTEM_PROMPT`.
+If you use line breaks in `.env`, write them as escaped `\n`.
+
+If you want Velma to send occasional random emails, enable them with the `configure_whimsy_emails` tool after setting the SMTP variables. The feature runs as a background worker inside the app process and persists its job state in `data/email_jobs.json`.
 
 ### 4. Run
 

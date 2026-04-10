@@ -5,6 +5,14 @@ import psutil
 import threading
 from datetime import datetime, timedelta
 from ddgs import DDGS
+from email_jobs import (
+    configure_whimsy_emails as _configure_whimsy_emails,
+    list_email_jobs as _list_email_jobs,
+    send_email_now as _send_email_now,
+    schedule_email_reminder as _schedule_email_reminder,
+    email_is_configured,
+    start_background_worker,
+)
 
 # ---------------------------------------------------------------------------
 # Reminder callback — set by the UI layer (cli or chainlit)
@@ -17,6 +25,9 @@ def set_reminder_callback(fn):
     """Called by the UI layer to register how reminders should be displayed."""
     global _reminder_callback
     _reminder_callback = fn
+
+
+start_background_worker()
 
 # ---------------------------------------------------------------------------
 # TOOL 1: App / File / URL Opener
@@ -522,7 +533,63 @@ def schedule_reminder(description: str, minutes: int = 0, time_str: str = "") ->
         "fire_at": fire_at.strftime("%Y-%m-%d %H:%M"),
     })
 
-    return f"Reminder set for {fire_at.strftime('%H:%M')}: {description}"
+    email_note = ""
+    if email_is_configured():
+        email_result = _schedule_email_reminder(
+            description=description,
+            minutes=minutes,
+            time_str=time_str,
+            subject=f"Velma reminder: {description[:60]}",
+        )
+        if email_result.startswith("Email reminder queued"):
+            email_note = f" I also queued an email copy to make sure you get it."
+        else:
+            email_note = f" Email queue note: {email_result}"
+    else:
+        email_note = " Email delivery is not configured yet, so this one will only show in-app."
+
+    total_seconds = int(max(delay, 0))
+    total_minutes = (total_seconds + 59) // 60
+    hours, mins = divmod(total_minutes, 60)
+    if hours and mins:
+        eta = f"in {hours}h {mins}m"
+    elif hours:
+        eta = f"in {hours}h"
+    else:
+        eta = f"in {mins}m"
+
+    absolute = fire_at.strftime("%Y-%m-%d %I:%M %p")
+    return f"Reminder set: '{description}' at {absolute} ({eta}).{email_note}"
+
+
+# ---------------------------------------------------------------------------
+# TOOL 13: Email Reminder / Whimsy Email
+# ---------------------------------------------------------------------------
+def schedule_email_reminder(description: str, minutes: int = 0, time_str: str = "", subject: str = "", recipient: str = "") -> str:
+    return _schedule_email_reminder(description=description, minutes=minutes, time_str=time_str, subject=subject, recipient=recipient)
+
+
+def configure_whimsy_emails(enabled: bool, recipient: str = "", min_hours: int = 6, max_hours: int = 12, probability: float = 0.35) -> str:
+    return _configure_whimsy_emails(enabled=enabled, recipient=recipient, min_hours=min_hours, max_hours=max_hours, probability=probability)
+
+
+def list_email_jobs() -> str:
+    return _list_email_jobs()
+
+
+def send_email(recipient: str, subject: str, body: str) -> str:
+    """
+    Sends an email immediately to a specified recipient.
+
+    Args:
+        recipient: Recipient email address.
+        subject: Email subject line.
+        body: Plain text email content.
+
+    Returns:
+        Delivery confirmation or an error message.
+    """
+    return _send_email_now(subject=subject, body=body, recipient=recipient)
 
 
 def list_reminders() -> str:
@@ -545,6 +612,50 @@ def list_reminders() -> str:
 
 
 # ---------------------------------------------------------------------------
+# TOOL 14: Rename / Move File
+# ---------------------------------------------------------------------------
+def rename_file(old_path: str, new_name: str) -> str:
+    """
+    Renames a file or moves it to a new location.
+    Always provide the full absolute path for old_path.
+    new_name can be just a filename (rename in-place) or a full path (move).
+
+    Args:
+        old_path: The absolute path to the existing file.
+        new_name: The new filename (e.g. 'photo.png') or full path.
+
+    Returns:
+        Confirmation or error message.
+    """
+    src = os.path.expanduser(old_path)
+    if not os.path.exists(src):
+        return f"Error: '{src}' does not exist."
+
+    # If new_name has no directory component, rename in-place
+    if not os.path.dirname(new_name):
+        dst = os.path.join(os.path.dirname(src), new_name)
+    else:
+        dst = os.path.expanduser(new_name)
+
+    try:
+        shutil.move(src, dst)
+        return f"Renamed '{os.path.basename(src)}' → '{os.path.basename(dst)}'."
+    except Exception as e:
+        return f"Error renaming file: {e}"
+
+
+# ---------------------------------------------------------------------------
+# TOOL 15: Get Current Time
+# ---------------------------------------------------------------------------
+def get_current_time() -> str:
+    """
+    Returns the current date and time in a friendly format.
+    """
+    now = datetime.now()
+    return now.strftime("%A, %B %d, %Y — %I:%M %p")
+
+
+# ---------------------------------------------------------------------------
 # Master list — import this in main.py
 # ---------------------------------------------------------------------------
 ALL_TOOLS = {
@@ -561,6 +672,12 @@ ALL_TOOLS = {
     'clear_temp_files': clear_temp_files,
     'schedule_reminder': schedule_reminder,
     'list_reminders': list_reminders,
+    'schedule_email_reminder': schedule_email_reminder,
+    'send_email': send_email,
+    'configure_whimsy_emails': configure_whimsy_emails,
+    'list_email_jobs': list_email_jobs,
+    'rename_file': rename_file,
+    'get_current_time': get_current_time,
 }
 
 # OpenAI-compatible tool schemas (used by Groq / OpenAI / etc.)
@@ -732,6 +849,93 @@ ALL_TOOL_SCHEMAS = [
             "name": "list_reminders",
             "description": "Lists all scheduled reminders.",
             "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "schedule_email_reminder",
+            "description": "Queues a reminder email to be delivered at a specific time.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string", "description": "What to remind the user about."},
+                    "minutes": {"type": "integer", "description": "Minutes from now to fire the reminder."},
+                    "time_str": {"type": "string", "description": "Absolute time like '15:30' or '3:00 PM'."},
+                    "subject": {"type": "string", "description": "Optional email subject."},
+                    "recipient": {"type": "string", "description": "Optional recipient email address."}
+                },
+                "required": ["description"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_email",
+            "description": "Sends an email immediately to a recipient using configured SMTP settings.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "recipient": {"type": "string", "description": "Recipient email address. Leave empty to use configured default recipient."},
+                    "subject": {"type": "string", "description": "Email subject line."},
+                    "body": {"type": "string", "description": "Plain text email body."}
+                },
+                "required": ["recipient", "subject", "body"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "configure_whimsy_emails",
+            "description": "Turns on or off random Velma emails and controls how often they can happen.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "enabled": {"type": "boolean", "description": "Whether whimsical emails should be allowed."},
+                    "recipient": {"type": "string", "description": "Optional recipient email address."},
+                    "min_hours": {"type": "integer", "description": "Minimum hours between random email checks."},
+                    "max_hours": {"type": "integer", "description": "Maximum hours between random email checks."},
+                    "probability": {"type": "number", "description": "Chance of actually sending when a random check fires."}
+                },
+                "required": ["enabled"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_email_jobs",
+            "description": "Shows pending email reminders and whimsy email status.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rename_file",
+            "description": "Renames or moves a file. Use this instead of shell 'ren' commands. Always pass the full absolute path for old_path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "old_path": {"type": "string", "description": "Full absolute path to the existing file."},
+                    "new_name": {"type": "string", "description": "New filename (e.g. 'photo.png') or full destination path."}
+                },
+                "required": ["old_path", "new_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "Returns the current date and time in a friendly format.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         }
     },
 ]
